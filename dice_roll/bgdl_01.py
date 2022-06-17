@@ -42,7 +42,7 @@ def main():
     condition_sum_list = [roll for roll in values if condition(roll)]
     condition_sum_list_false = [roll for roll in values if not condition(roll)]
     print("You rolled {} d{}.".format(number_of_dice, max_dice))
-    print("Number of valid combinations (+{}) / total combinations".format(', +'.join([str(x) for x in conditions])))
+    print("Number of valid combinations ({}+) / total combinations".format('+, '.join([str(x) for x in conditions])))
     print("{}/{} = {:.2%}".format(condition_sum, total_sum, condition_sum/total_sum))
 
     prompt = input("Press Enter to keep checking other combinations, or write anything and press Enter to stop: ")
