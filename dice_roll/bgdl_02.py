@@ -7,7 +7,7 @@ max_dice, number_of_dice, conditions = [None]*3
 sample_size = None
 
 def main():
-    global max_dice, number_of_dice, conditions, roll_list
+    global max_dice, number_of_dice, conditions, sample_size
     max_dice = int(input("How many faces does the die have? ")) # max_dice = 6
     dice_faces = range(1, max_dice+1) # dice_faces = [1, 2, 3, 4, 5, 6]
     number_of_dice = int(input("How many dice do you want to roll? ")) # number_of_dice = 3
@@ -65,12 +65,12 @@ def main():
         Example: 2d6, conditions set at [1,3] [1,2] and a dice roll of (1,3) will fail because the loop digests
         the 1 first leaving 3 which is not catched by the 2nd condition, even though the roll is valid.
         '''
-        condition_permutations = itertools.permutations(conditions)
-        
-        flag = False
-        for condition_set in condition_permutations:
-            roll = sorted(base_roll)
-            for check in condition_set:
+
+        def sole_condition(roll, conditions):
+            "Auxiliary function that's the same as the above, but allows arbitrary conditions"
+            roll = sorted(roll)
+            
+            for check in conditions:
                 break_flag = False
                 for dice in roll:
                     if dice in check:
@@ -78,12 +78,14 @@ def main():
                         break_flag = True
                         break
                 if break_flag: continue
-                break_flag = False
-            if not break_flag: break #return False
-            flag = True
-            break #return True
+                return False
+            return True
+        
+        condition_permutations = itertools.permutations(conditions)
 
-        return flag
+        for condition_set in condition_permutations:
+            if sole_condition(sorted(base_roll), condition_set): return True
+        return False
 
     def random_product(*args, repeat=1): # random_product() from itertools recipes in https://docs.python.org/3/library/itertools.html
         "Random selection from itertools.product(*args, **kwds)"
@@ -95,8 +97,6 @@ def main():
             yield random_product(dice_faces, repeat=number_of_dice)
             num -= 1
 
-    global sample_size
-
     condition_func = condition
     if permutations: condition_func = condition_with_permutations
 
@@ -107,7 +107,7 @@ def main():
     else: # use random sampling
         random_sampling = True
         condition_sum = sum(map(condition_func, sampler(sample_size)))
-
+    
     # use itertools islice for threading
 
     print("")
