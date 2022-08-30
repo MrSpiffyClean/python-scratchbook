@@ -11,7 +11,9 @@ def main():
     max_dice = int(input("How many faces does the die have? ")) # max_dice = 6
     dice_faces = range(1, max_dice+1) # dice_faces = [1, 2, 3, 4, 5, 6]
     number_of_dice = int(input("How many dice do you want to roll? ")) # number_of_dice = 3
-    conditions = input("What are the checks you are looking for (separate the numbers by spaces, e.g. 4 5)? ") # separate numbers with spaces
+    conditions = input("What are the checks you are looking for (separate the numbers by spaces, e.g. 4 5+ 3- [1,3,4])? ") # separate numbers with spaces
+    permutations = input("Want to check all permutations of the checks (might be slower, but useful for cases such as '[1,3] [1,2]' that might otherwise be missed) (yes/no)? ")
+    permutations = permutations.strip().casefold().startswith('y')
 
     def condition_decoder(condition):
         ''' Converts the text input into ranges
@@ -33,26 +35,55 @@ def main():
     conditions = [condition_decoder(condition) for condition in conditions.split()]
 
     def condition(roll):
-        # How this works:
-        # The roll is sorted, afterwards we check each condition.
-        # If a dice in the roll matches the 1st condition, that dice is removed from the list
-        # and we check the next condition.
-        # This keeps going until we exaust the condition loop (whether we removed anything or not)
-        # We then check how many elements were removed from the roll; if the number of elements
-        # removed matches the number of elements in the condition, then it matches the conditions
+        ''' Defines the condition checking algorithm
+        How this works:
+        1. The roll is sorted (this isn't necessarily needed, but it converts the tuple into a list, which allows removal)
+        2. We check every condition against the current set of dice
+            - If the condition matches a dice, that dice is removed and we check the next condition
+            - If the condition doesn't match any dice, then the conditions can't be met, and we return False
+        3. If the loop ends, then all conditions have been met, and we return True
+        (inspired by a nicer algorithm found on an excel file, posted on
+        https://www.facebook.com/groups/BGDLCommunity/posts/1394654674390499/ by Johan Falk (Simon's Dice Machine))
+        '''
 
         roll = sorted(roll)
         
         for check in conditions:
+            break_flag = False
             for dice in roll:
                 if dice in check:
                     roll.remove(dice)
+                    break_flag = True
                     break
-        
-        if (len(roll)+len(conditions)) == number_of_dice:
-            return True
-        else:
+            if break_flag: continue
             return False
+        return True
+
+    def condition_with_permutations(base_roll):
+        ''' Defines the condition checking algorithm, with condition permutations
+        This exists in case of some odd condition combinations that might fail on one way but otherwise work
+        Example: 2d6, conditions set at [1,3] [1,2] and a dice roll of (1,3) will fail because the loop digests
+        the 1 first leaving 3 which is not catched by the 2nd condition, even though the roll is valid.
+        '''
+        condition_permutations = itertools.permutations(conditions)
+        
+        flag = False
+        for condition_set in condition_permutations:
+            roll = sorted(base_roll)
+            for check in condition_set:
+                break_flag = False
+                for dice in roll:
+                    if dice in check:
+                        roll.remove(dice)
+                        break_flag = True
+                        break
+                if break_flag: continue
+                break_flag = False
+            if not break_flag: break #return False
+            flag = True
+            break #return True
+
+        return flag
 
     def random_product(*args, repeat=1): # random_product() from itertools recipes in https://docs.python.org/3/library/itertools.html
         "Random selection from itertools.product(*args, **kwds)"
@@ -66,21 +97,26 @@ def main():
 
     global sample_size
 
+    condition_func = condition
+    if permutations: condition_func = condition_with_permutations
+
     total_sum = max_dice**number_of_dice
     random_sampling = False
     if total_sum < sample_size:
-        condition_sum = sum(map(condition, itertools.product(dice_faces, repeat=number_of_dice))) # quantify() from itertools recipes in https://docs.python.org/3/library/itertools.html
+        condition_sum = sum(map(condition_func, itertools.product(dice_faces, repeat=number_of_dice))) # quantify() from itertools recipes in https://docs.python.org/3/library/itertools.html
     else: # use random sampling
         random_sampling = True
-        condition_sum = sum(map(condition, sampler(sample_size)))
+        condition_sum = sum(map(condition_func, sampler(sample_size)))
 
     # use itertools islice for threading
 
+    print("")
     print("You rolled {} d{}.".format(number_of_dice, max_dice))
     if random_sampling:
         print("Too many possibilities {}. Random sampling {} rolls".format(total_sum, sample_size))
         total_sum = sample_size
-
+    if permutations:
+        print("Used permutations.")
     print("Number of valid combinations ({}) / total combinations".format(', '.join([str(list(x)) for x in conditions])))
     print("{}/{} = {:.2%}".format(condition_sum, total_sum, condition_sum/total_sum))
 
